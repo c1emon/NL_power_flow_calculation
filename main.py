@@ -38,4 +38,4 @@ args.gen_node_infos()
 args.gen_init_values()
 # 迭代
 nl = NL_Iteration(args)
-nl.calc_delta_val()
+nl.gen_J_mat()
