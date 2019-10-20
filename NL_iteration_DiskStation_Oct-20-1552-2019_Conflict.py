@@ -1,4 +1,4 @@
-import numpy as np
+
 
 class NL_Iteration(object):
     def __init__(self, infos):
@@ -8,9 +8,6 @@ class NL_Iteration(object):
         self._delta_Q_PQ = []
         self._delta_P_PV = []
         self._delta_U_PV = []
-        self.delta_left = []
-        self.delta_right = []
-        self.J = []
         
 
     def _calc_delta_val(self):
@@ -52,34 +49,9 @@ class NL_Iteration(object):
 
                 temp = node["V"]**2 - (self.init_value[i][1]["e"]**2 + self.init_value[i][1]["f"]**2)
                 self._delta_U_PV.append(temp)
-
-        # 
-        for i in range(0, len(self._delta_P_PQ)):
-            self.delta_left.append(self._delta_P_PQ[i])
-            self.delta_left.append(self._delta_Q_PQ[i])
-        for i in range(0, len(self._delta_P_PV)):
-            self.delta_left.append(self._delta_P_PV[i])
-            self.delta_left.append(self._delta_U_PV[i])
-
-        slack_node_num = 0
-        for i, node in enumerate(self.infos.Node_infos):
-            if node["node_type"] == "SLACK":
-                slack_node_num = i + 1
-                break
-
-        
-        for item in self.init_value:
-            if item[0] == slack_node_num:
-                continue
-            self.delta_right.append(item[1]["f"])
-            self.delta_right.append(item[1]["e"])
-
-        # print(self.delta_right)
-
-
         
 
-    def _gen_J_mat(self):
+    def gen_J_mat(self):
         for i, node_i in enumerate(self.infos.Node_infos):
             if node_i["node_type"] == "SLACK":
                 continue
@@ -89,15 +61,11 @@ class NL_Iteration(object):
                     e_i = item[1]["e"]
                     f_i = item[1]["f"]
                     break
-            t1, t2 = [], []
             for j, node_j in enumerate(self.infos.Node_infos):
                 if node_j["node_type"] == "SLACK":
                     continue
-
-                H_ii, N_ii, J_ii, L_ii, R_ii, S_ii = 0, 0, 0, 0, 0, 0
-                H_ij, N_ij, J_ij, L_ij, R_ij, S_ij = 0, 0, 0, 0, 0, 0
-                
                 if i == j :
+                    H_ii, N_ii, J_ii, L_ii, R_ii, S_ii = 0, 0, 0, 0, 0, 0
                     for k, item in enumerate(self.init_value):
                         H_ii += self.infos.G[i][k] * item[1]["f"] + self.infos.B[i][k] * item[1]["e"]
                         N_ii += self.infos.G[i][k] * item[1]["e"] - self.infos.B[i][k] * item[1]["f"]
@@ -108,9 +76,8 @@ class NL_Iteration(object):
                     R_ii = 2 * self.init_value[i][1]["f"]
                     S_ii = 2 * self.init_value[i][1]["e"]
                     
-                    # t = [[H_ii, N_ii], [J_ii, L_ii]]
-                    t1.extend([H_ii, N_ii])
-                    t2.extend([J_ii, L_ii])
+                    t = [[H_ii, N_ii], [J_ii, L_ii]]
+                    # print(t)
 
                 else:
                     H_ij = -self.infos.B[i][j] * e_i + self.infos.G[i][j] * f_i
@@ -119,21 +86,6 @@ class NL_Iteration(object):
                     L_ij =  H_ij
                     R_ij = 0
                     S_ij = 0
-
-                    # t = [[H_ij, N_ij], [J_ij, L_ij]]
-                    t1.extend([H_ij, N_ij])
-                    t2.extend([J_ij, L_ij])
-
-            self.J.append(t1)
-            self.J.append(t2)
-
-    def calc(self):
-        self._calc_delta_val()
-        self._gen_J_mat()
-        J = np.matrix(self.J).I
-        dt = np.transpose(np.matrix(self.delta_left))
-        print(J * dt)
-
-            
-
+                    t = [[H_ij, N_ij], [J_ij, L_ij]]
+                    print(t)
             
