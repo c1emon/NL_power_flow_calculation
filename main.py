@@ -1,6 +1,10 @@
 from input_data import input_net_args
 from NL_iteration import NL_Iteration
 
+# Tips ：
+# 序号PQ节点在前，PV节点在后
+# 输入参数为标幺值
+
 # 1.数据输入
 Line_arg = [
 #   导线首端    导线末端    串联电阻    串联电抗    并联电导    并联电纳
@@ -38,4 +42,4 @@ args.gen_node_infos()
 args.gen_init_values()
 # 迭代
 nl = NL_Iteration(args)
-nl.gen_J_mat()
+nl.start_iteration()

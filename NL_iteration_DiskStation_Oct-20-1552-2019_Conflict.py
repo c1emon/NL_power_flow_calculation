@@ -1,5 +1,4 @@
-import numpy as np
-import copy
+
 
 class NL_Iteration(object):
     def __init__(self, infos):
@@ -9,15 +8,9 @@ class NL_Iteration(object):
         self._delta_Q_PQ = []
         self._delta_P_PV = []
         self._delta_U_PV = []
-        self.delta_left = []
-        self.J = []
         
 
-    def __calc_delta_val(self):
-        self._delta_P_PQ = []
-        self._delta_Q_PQ = []
-        self._delta_P_PV = []
-        self._delta_U_PV = []
+    def _calc_delta_val(self):
         for i, node in enumerate(self.infos.Node_infos):
             if node["node_type"] == "SLACK":
                 continue
@@ -56,21 +49,9 @@ class NL_Iteration(object):
 
                 temp = node["V"]**2 - (self.init_value[i][1]["e"]**2 + self.init_value[i][1]["f"]**2)
                 self._delta_U_PV.append(temp)
-
-        # 
-        self.delta_left = []
-        for i in range(0, len(self._delta_P_PQ)):
-            self.delta_left.append(self._delta_P_PQ[i])
-            self.delta_left.append(self._delta_Q_PQ[i])
-        for i in range(0, len(self._delta_P_PV)):
-            self.delta_left.append(self._delta_P_PV[i])
-            self.delta_left.append(self._delta_U_PV[i])
-
-
         
 
-    def __gen_J_mat(self):
-        self.J = []
+    def gen_J_mat(self):
         for i, node_i in enumerate(self.infos.Node_infos):
             if node_i["node_type"] == "SLACK":
                 continue
@@ -80,15 +61,11 @@ class NL_Iteration(object):
                     e_i = item[1]["e"]
                     f_i = item[1]["f"]
                     break
-            t1, t2 = [], []
             for j, node_j in enumerate(self.infos.Node_infos):
                 if node_j["node_type"] == "SLACK":
                     continue
-
-                H_ii, N_ii, J_ii, L_ii, R_ii, S_ii = 0, 0, 0, 0, 0, 0
-                H_ij, N_ij, J_ij, L_ij, R_ij, S_ij = 0, 0, 0, 0, 0, 0
-                
                 if i == j :
+                    H_ii, N_ii, J_ii, L_ii, R_ii, S_ii = 0, 0, 0, 0, 0, 0
                     for k, item in enumerate(self.init_value):
                         H_ii += self.infos.G[i][k] * item[1]["f"] + self.infos.B[i][k] * item[1]["e"]
                         N_ii += self.infos.G[i][k] * item[1]["e"] - self.infos.B[i][k] * item[1]["f"]
@@ -99,9 +76,8 @@ class NL_Iteration(object):
                     R_ii = 2 * self.init_value[i][1]["f"]
                     S_ii = 2 * self.init_value[i][1]["e"]
                     
-                    # t = [[H_ii, N_ii], [J_ii, L_ii]]
-                    t1.extend([H_ii, N_ii])
-                    t2.extend([J_ii, L_ii])
+                    t = [[H_ii, N_ii], [J_ii, L_ii]]
+                    # print(t)
 
                 else:
                     H_ij = -self.infos.B[i][j] * e_i + self.infos.G[i][j] * f_i
@@ -110,64 +86,6 @@ class NL_Iteration(object):
                     L_ij =  H_ij
                     R_ij = 0
                     S_ij = 0
-
-                    # t = [[H_ij, N_ij], [J_ij, L_ij]]
-                    t1.extend([H_ij, N_ij])
-                    t2.extend([J_ij, L_ij])
-
+                    t = [[H_ij, N_ij], [J_ij, L_ij]]
+                    print(t)
             
-            self.J.append(t1)
-            self.J.append(t2)
-
-    def __correction(self, correction_matrix):
-        correction_list = correction_matrix.T.getA()[0]
-        precision = 10**-5
-        for item in correction_list:
-            if abs(item) > precision :
-                break
-            return True
-
-
-        slack_node_num = 0
-        for i, node in enumerate(self.infos.Node_infos):
-            if node["node_type"] == "SLACK":
-                slack_node_num = i + 1
-                break
-        temp = copy.deepcopy(self.init_value)
-        flag_slack = False
-        for i, item in enumerate(temp):
-            if item[0] == slack_node_num:
-                flag_slack = True
-                continue
-            if flag_slack :
-                item[1]["f"] += correction_list[2* (i - 1)]
-                item[1]["e"] += correction_list[2* (i - 1) + 1]
-            else:
-                item[1]["f"] += correction_list[2* i]
-                item[1]["e"] += correction_list[2* i + 1]
-        self.init_value = copy.deepcopy(temp)
-
-        return False
-
-
-    def start_iteration(self):
-
-        stop_flag = False
-        iteration_time = 0
-
-        while not stop_flag:
-            iteration_time += 1
-            self.__calc_delta_val()
-            self.__gen_J_mat()
-            J = np.matrix(self.J).I
-            dt = np.transpose(np.matrix(self.delta_left))
-            correction_value = J * dt
-            stop_flag = self.__correction(correction_value)
-
-            if iteration_time > 10000 :
-                print("不收敛")
-                break
-
-        print("迭代完毕：", self.init_value, "\n")
-        
-        
