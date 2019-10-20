@@ -169,7 +169,7 @@ class NL_Iteration(object):
             correction_value = J * dt
             stop_flag = self.__correction(correction_value)
 
-            if iteration_time > 100000 :
+            if iteration_time > 10000000 :
                 print("不收敛")
                 break
 
