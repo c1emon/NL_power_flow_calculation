@@ -121,7 +121,7 @@ class NL_Iteration(object):
 
     def __correction(self, correction_matrix):
         correction_list = correction_matrix.T.getA()[0]
-        precision = 10**-5
+        precision = 10**-3
         for item in correction_list:
             if abs(item) > precision :
                 break
@@ -168,6 +168,8 @@ class NL_Iteration(object):
                 print("不收敛")
                 break
 
-        print("迭代完毕：", self.init_value, "\n")
+        print("迭代完毕：\n")
+        for item in self.init_value:
+            print("节点: ", item[0], "   电压: ", item[1]["e"], " + j", item[1]["f"], end="\n")
         
         
