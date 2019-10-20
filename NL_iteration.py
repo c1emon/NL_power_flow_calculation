@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 class NL_Iteration(object):
     def __init__(self, infos):
@@ -9,11 +10,14 @@ class NL_Iteration(object):
         self._delta_P_PV = []
         self._delta_U_PV = []
         self.delta_left = []
-        self.delta_right = []
         self.J = []
         
 
-    def _calc_delta_val(self):
+    def __calc_delta_val(self):
+        self._delta_P_PQ = []
+        self._delta_Q_PQ = []
+        self._delta_P_PV = []
+        self._delta_U_PV = []
         for i, node in enumerate(self.infos.Node_infos):
             if node["node_type"] == "SLACK":
                 continue
@@ -54,6 +58,7 @@ class NL_Iteration(object):
                 self._delta_U_PV.append(temp)
 
         # 
+        self.delta_left = []
         for i in range(0, len(self._delta_P_PQ)):
             self.delta_left.append(self._delta_P_PQ[i])
             self.delta_left.append(self._delta_Q_PQ[i])
@@ -61,25 +66,11 @@ class NL_Iteration(object):
             self.delta_left.append(self._delta_P_PV[i])
             self.delta_left.append(self._delta_U_PV[i])
 
-        slack_node_num = 0
-        for i, node in enumerate(self.infos.Node_infos):
-            if node["node_type"] == "SLACK":
-                slack_node_num = i + 1
-                break
-
-        
-        for item in self.init_value:
-            if item[0] == slack_node_num:
-                continue
-            self.delta_right.append(item[1]["f"])
-            self.delta_right.append(item[1]["e"])
-
-        # print(self.delta_right)
-
 
         
 
-    def _gen_J_mat(self):
+    def __gen_J_mat(self):
+        self.J = []
         for i, node_i in enumerate(self.infos.Node_infos):
             if node_i["node_type"] == "SLACK":
                 continue
@@ -124,16 +115,59 @@ class NL_Iteration(object):
                     t1.extend([H_ij, N_ij])
                     t2.extend([J_ij, L_ij])
 
+            
             self.J.append(t1)
             self.J.append(t2)
 
-    def calc(self):
-        self._calc_delta_val()
-        self._gen_J_mat()
-        J = np.matrix(self.J).I
-        dt = np.transpose(np.matrix(self.delta_left))
-        print(J * dt)
+    def __correction(self, correction_matrix):
+        correction_list = correction_matrix.T.getA()[0]
+        precision = 10**-5
+        for item in correction_list:
+            if abs(item) > precision :
+                break
+            return True
 
-            
 
-            
+        slack_node_num = 0
+        for i, node in enumerate(self.infos.Node_infos):
+            if node["node_type"] == "SLACK":
+                slack_node_num = i + 1
+                break
+        temp = copy.deepcopy(self.init_value)
+        flag_slack = False
+        for i, item in enumerate(temp):
+            if item[0] == slack_node_num:
+                flag_slack = True
+                continue
+            if flag_slack :
+                item[1]["f"] += correction_list[2* (i - 1)]
+                item[1]["e"] += correction_list[2* (i - 1) + 1]
+            else:
+                item[1]["f"] += correction_list[2* i]
+                item[1]["e"] += correction_list[2* i + 1]
+        self.init_value = copy.deepcopy(temp)
+
+        return False
+
+
+    def start_iteration(self):
+
+        stop_flag = False
+        iteration_time = 0
+
+        while not stop_flag:
+            iteration_time += 1
+            self.__calc_delta_val()
+            self.__gen_J_mat()
+            J = np.matrix(self.J).I
+            dt = np.transpose(np.matrix(self.delta_left))
+            correction_value = J * dt
+            stop_flag = self.__correction(correction_value)
+
+            if iteration_time > 10000 :
+                print("不收敛")
+                break
+
+        print("迭代完毕：", self.init_value, "\n")
+        
+        
