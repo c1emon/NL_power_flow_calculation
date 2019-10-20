@@ -96,13 +96,16 @@ class NL_Iteration(object):
                     L_ii += -H_ii + self.infos.G[i][i] * self.init_value[i][1]["f"] - self.infos.B[i][i] * self.init_value[i][1]["e"]
                     H_ii += -self.infos.B[i][i] * self.init_value[i][1]["e"] + self.infos.G[i][i] * self.init_value[i][1]["f"]
                     N_ii +=  self.infos.G[i][i] * self.init_value[i][1]["e"] + self.infos.B[i][i] * self.init_value[i][1]["f"]
-                    R_ii = 2 * self.init_value[i][1]["f"]
-                    S_ii = 2 * self.init_value[i][1]["e"]
                     
-                    # t = [[H_ii, N_ii], [J_ii, L_ii]]
                     t1.extend([H_ii, N_ii])
-                    t2.extend([J_ii, L_ii])
-
+                    
+                    if node_i["node_type"] == "PV":
+                        R_ii = 2 * self.init_value[i][1]["f"]
+                        S_ii = 2 * self.init_value[i][1]["e"]
+                        t2.extend([R_ii, S_ii])
+                    else:
+                        t2.extend([J_ii, L_ii])
+                    
                 else:
                     H_ij = -self.infos.B[i][j] * e_i + self.infos.G[i][j] * f_i
                     N_ij =  self.infos.G[i][j] * e_i + self.infos.B[i][j] * f_i
@@ -111,17 +114,19 @@ class NL_Iteration(object):
                     R_ij = 0
                     S_ij = 0
 
-                    # t = [[H_ij, N_ij], [J_ij, L_ij]]
                     t1.extend([H_ij, N_ij])
-                    t2.extend([J_ij, L_ij])
 
+                    if node_i["node_type"] == "PV":
+                        t2.extend([R_ij, S_ij])
+                    else:
+                        t2.extend([J_ij, L_ij])
             
             self.J.append(t1)
             self.J.append(t2)
 
     def __correction(self, correction_matrix):
         correction_list = correction_matrix.T.getA()[0]
-        precision = 10**-5
+        precision = 10**-3
         for item in correction_list:
             if abs(item) > precision :
                 break
@@ -164,10 +169,12 @@ class NL_Iteration(object):
             correction_value = J * dt
             stop_flag = self.__correction(correction_value)
 
-            if iteration_time > 10000 :
+            if iteration_time > 100000 :
                 print("不收敛")
                 break
 
-        print("迭代完毕：", self.init_value, "\n")
+        print("迭代完毕：次数", iteration_time, end="\n")
+        for item in self.init_value:
+            print("节点: ", item[0], "   电压: ", item[1]["e"], " + j", item[1]["f"], end="\n")
         
         
